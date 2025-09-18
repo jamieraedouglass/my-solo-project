@@ -3,56 +3,33 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import bcrypt from 'bcrypt';
+import mongoose from 'mongoose';
 
 import sessionController from './controllers/sessionController.ts';
 import Session from './models/sessionModel.ts';
 import User from './models/userModels.ts';
+import verifyUser from './models/verifyUser.ts';
+
+const DEV_USER_ID = 'dev-user';
+const DEV_EMAIL = 'test@example.com';
+const DEV_NOTES = new Map<string, string>();
 
 const app = express();
 const PORT = 3000;
 
+const MONGO_URL = process.env.MONGO_URL ?? 'mongodb://127.0.0.1:27017/nflapp';
+await mongoose.connect(MONGO_URL);
+console.log('✅ Mongo connected');
+
 app.use(express.json());
 app.use(cookieParser());
-
 app.set('json spaces', 2);
 app.set('etag', false);
 
-// ---------- Static (Vite build output) ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// ---------- Inline AUTH endpoints (no routes/auth.ts needed) ----------
-
-// Minimal credential check middleware
-const verifyUser: express.RequestHandler = async (req, res, next) => {
-  try {
-    const { email, password } = req.body as {
-      email?: string;
-      password?: string;
-    };
-    if (!email || !password)
-      return res.status(400).json({ error: 'Missing credentials' });
-
-    // 👇 Adjust these lines to match your User schema
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-
-    // If your schema uses `password` instead of `passwordHash`, change accordingly:
-    const hashed = (user as any).passwordHash ?? (user as any).password;
-    const ok = await bcrypt.compare(password, hashed);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-
-    // Expose for startSession
-    (res.locals as any).user = user;
-    return next();
-  } catch (err) {
-    return next(err);
-  }
-};
-
-// POST /auth/login -> sets cookie via startSession
 app.post(
   '/auth/login',
   verifyUser,
@@ -62,21 +39,44 @@ app.post(
   }
 );
 
-// POST /auth/logout -> remove session + clear cookie
 app.post('/auth/logout', async (req, res, next) => {
   try {
     const ssid = req.cookies?.ssid;
-    if (ssid) {
-      await Session.deleteOne({ cookieId: ssid }).catch(() => void 0);
-    }
-    res.clearCookie('ssid');
+    if (ssid) await Session.deleteOne({ cookieId: ssid }).catch(() => void 0);
+    res.clearCookie('ssid', { path: '/' });
     return res.status(200).json({ ok: true });
   } catch (err) {
     return next(err);
   }
 });
 
-// ---------- SportsDataIO helpers & API ----------
+app.post('/auth/signup', async (req, res, next) => {
+  try {
+    const { email, password, name } = req.body as {
+      email: string;
+      password: string;
+      name?: string;
+    };
+    if (!email || !password)
+      return res.status(400).json({ error: 'email and password required' });
+
+    const existing = await User.findOne({ email });
+    if (existing)
+      return res.status(409).json({ error: 'Email already in use' });
+
+    const user = new (User as any)({ email, name });
+    await user.setPassword(password);
+    await user.save();
+
+    res.locals.user = user;
+    return sessionController.startSession(req, res, () =>
+      res.status(201).json({ ok: true })
+    );
+  } catch (err) {
+    return next(err);
+  }
+});
+
 const API_KEY = '3186f41fe9b94da68a3dd918913bf7d6';
 const BASE = 'https://api.sportsdata.io/v3/nfl/scores/json';
 
@@ -94,7 +94,6 @@ async function getJSON(urlPath: string) {
   }
 }
 
-// Want to protect these? Add `sessionController.isLoggedIn` as shown.
 app.get(
   '/api/schedule',
   /* sessionController.isLoggedIn, */ async (_req, res) => {
@@ -139,12 +138,62 @@ app.get(
   }
 );
 
-// Probe for client-side guards
-app.get('/api/me', sessionController.isLoggedIn, (_req, res) => {
-  res.json({ loggedIn: true });
+app.get('/api/me', sessionController.isLoggedIn, async (req, res, next) => {
+  try {
+    const userId = req.cookies?.ssid;
+    if (!userId) return res.status(401).json({ error: 'No session' });
+
+    if (userId === DEV_USER_ID) {
+      return res.json({
+        user: {
+          email: DEV_EMAIL,
+          name: 'Dev User',
+          notes: DEV_NOTES.get(DEV_USER_ID) ?? '',
+        },
+      });
+    }
+
+    const user = await User.findById(userId).select('email name notes');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    return res.json({ user });
+  } catch (err) {
+    return next(err);
+  }
 });
 
-// ---------- SPA fallback ----------
+app.put(
+  '/api/me/notes',
+  sessionController.isLoggedIn,
+  async (req, res, next) => {
+    try {
+      const userId = req.cookies?.ssid;
+      if (!userId) return res.status(401).json({ error: 'No session' });
+
+      const { notes } = req.body as { notes?: string };
+      if (typeof notes !== 'string')
+        return res.status(400).json({ error: 'notes must be a string' });
+
+      if (userId === DEV_USER_ID) {
+        DEV_NOTES.set(DEV_USER_ID, notes);
+        return res.json({
+          ok: true,
+          user: { email: DEV_EMAIL, name: 'Dev User', notes },
+        });
+      }
+
+      const updated = await User.findByIdAndUpdate(
+        userId,
+        { notes },
+        { new: true, runValidators: true, select: 'email name notes' }
+      );
+      if (!updated) return res.status(404).json({ error: 'User not found' });
+      return res.json({ ok: true, user: updated });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 app.use((req, res, next) => {
   if (req.method !== 'GET') return next();
   if (req.path.startsWith('/api')) return next();
@@ -152,34 +201,6 @@ app.use((req, res, next) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-// ---------- Start server ----------
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
-});
-
-app.post('/auth/signup', async (req, res, next) => {
-  try {
-    const { email, password, name } = req.body as {
-      email: string;
-      password: string;
-      name?: string;
-    };
-    if (!email || !password)
-      return res.status(400).json({ error: 'email and password required' });
-
-    const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(409).json({ error: 'Email already in use' });
-
-    const user = new User({ email, name });
-    await user.setPassword(password);
-    await user.save();
-
-    res.locals.user = user;
-    return sessionController.startSession(req, res, () => {
-      return res.status(201).json({ ok: true });
-    });
-  } catch (err) {
-    return next(err);
-  }
 });

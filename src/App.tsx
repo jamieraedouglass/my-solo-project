@@ -5,6 +5,7 @@ import Standings from './NFLStandings';
 import Schedule from './NFLSchedule';
 import TeamPage from './TeamPage';
 import NotFound from './pages/NotFound';
+import Dashboard from "./pages/Dashboard"
 import Login from './pages/Login';
 
 export default function App() {
@@ -64,7 +65,7 @@ export default function App() {
         <Route path='/team/:team' element={<TeamPage />} />
 
         <Route path='/login' element={<Login />} />
-
+        <Route path='/dashboard' element={<Dashboard />} /> {}
         <Route path='*' element={<NotFound />} />
       </Routes>
     </div>
