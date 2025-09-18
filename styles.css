@@ -1,1 +1,14 @@
 @import 'tailwindcss';
+
+.NFLDashbaord {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 75px;
+}
+
+.NFLStanding {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  plugin: [react()],
+  plugins: [react()],
+  appType: 'spa',
   server: {
     proxy: {
       '/api': {
