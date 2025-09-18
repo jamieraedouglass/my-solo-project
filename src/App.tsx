@@ -2,11 +2,12 @@ import { Routes, Route, NavLink } from 'react-router-dom';
 import Home from './pages/Home';
 import Standings from './NFLStandings';
 import Schedule from './NFLSchedule';
+import TeamPage from './TeamPage';
 import NotFound from './pages/NotFound';
 
 export default function App() {
   return (
-    <div className='p-6 space-y-6'>
+    <div className='flex flex-col items-center justify-center min-h-screen p-6 text-center'>
       <nav className='w-full flex justify-around text-lg font-medium'>
         <NavLink
           to='/'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path='/' element={<Home />} />
         <Route path='/standings' element={<Standings />} />
         <Route path='/schedule' element={<Schedule />} />
+        <Route path='/team/:team' element={<TeamPage />} />
         <Route path='*' element={<NotFound />} />
       </Routes>
     </div>

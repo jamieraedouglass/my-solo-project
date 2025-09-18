@@ -1,89 +1,83 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const TEAMS = [
-  'Arizona Cardinals',
-  'Atlanta Falcons',
-  'Baltimore Ravens',
-  'Buffalo Bills',
-  'Carolina Panthers',
-  'Chicago Bears',
-  'Cincinnati Bengals',
-  'Cleveland Browns',
-  'Dallas Cowboys',
-  'Denver Broncos',
-  'Detroit Lions',
-  'Green Bay Packers',
-  'Houston Texans',
-  'Indianapolis Colts',
-  'Jacksonville Jaguars',
-  'Kansas City Chiefs',
-  'Las Vegas Raiders',
-  'Los Angeles Chargers',
-  'Los Angeles Rams',
-  'Miami Dolphins',
-  'Minnesota Vikings',
-  'New England Patriots',
-  'New Orleans Saints',
-  'New York Giants',
-  'New York Jets',
-  'Philadelphia Eagles',
-  'Pittsburgh Steelers',
-  'San Francisco 49ers',
-  'Seattle Seahawks',
-  'Tampa Bay Buccaneers',
-  'Tennessee Titans',
-  'Washington Commanders',
-];
-
 export default function Home() {
-  const [team, setTeam] = useState('');
+  const [teamName, setTeamName] = useState('');
+  const [nameToCode, setNameToCode] = useState<Record<string, string>>({});
+  const [teamList, setTeamList] = useState<string[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/standings');
+        const rows = await res.json();
+        const map: Record<string, string> = {};
+        const names: string[] = [];
+        for (const r of rows ?? []) {
+          if (r.Team && r.Code) {
+            map[r.Team] = r.Code;
+            names.push(r.Team);
+          }
+        }
+        names.sort();
+        setNameToCode(map);
+        setTeamList(names);
+      } catch (e) {
+        console.error('Failed to load team list:', e);
+      }
+    })();
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate(
-      team ? `/standings?team=${encodeURIComponent(team)}` : '/standings'
-    );
+    const code = nameToCode[teamName];
+    if (code) {
+      navigate(`/team/${code}`);
+    } else {
+      navigate('/standings');
+    }
   }
 
   return (
-    <main>
-      <div>
-        <header>
-          <h1 className='NFLDashbaord'>NFL Dashboard</h1>
-          <p className='PickTeam'>
-            See the current standings and pick a team to focus on.
-          </p>
-        </header>
+    <main className='flex flex-col items-center justify-center min-h-screen p-6 text-center'>
+      <header className='mb-6'>
+        <h1 className='text-4xl font-extrabold'>NFL Dashboard</h1>
+        <p className='text-gray-600 mt-2'>
+          See the current standings and pick a team to focus on.
+        </p>
+      </header>
 
-        <section>
-          <form onSubmit={handleSubmit} className='onSubmit'>
-            <label htmlFor='teamdropdown' className='sr-only'>
-              Team
-            </label>
-            <select
-              id='teamdropdown'
-              value={team}
-              onChange={(e) => setTeam(e.target.value)}
-              className='teamdropdown'
-            >
-              <option value='' disabled>
-                Select a team…
+      <section>
+        <form onSubmit={handleSubmit} className='flex items-center gap-3'>
+          <label htmlFor='teamdropdown' className='sr-only'>
+            Team
+          </label>
+
+          <select
+            id='teamdropdown'
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            className='border rounded px-3 py-2'
+          >
+            <option value='' disabled>
+              Select a team…
+            </option>
+            {teamList.map((name) => (
+              <option key={name} value={name}>
+                {name}
               </option>
-              {TEAMS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            ))}
+          </select>
 
-            <button type='submit' className='submit button'>
-              Enter
-            </button>
-          </form>
-        </section>
-      </div>
+          <button
+            type='submit'
+            className='px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700'
+          >
+            Enter
+          </button>
+        </form>
+      </section>
     </main>
   );
 }

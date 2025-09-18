@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { NavLink } from 'react-router-dom';
 
 interface TeamStanding {
+  Code: string; // <-- add this (e.g., "NYG")
   Team: string;
   Wins: number;
   Losses: number;
@@ -13,9 +15,9 @@ export default function Standings() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchStandings() {
+    (async () => {
       try {
-        const res = await fetch('/api/standings'); 
+        const res = await fetch('/api/standings');
         const data = await res.json();
         setStandings(data);
       } catch (err) {
@@ -23,16 +25,14 @@ export default function Standings() {
       } finally {
         setLoading(false);
       }
-    }
-
-    fetchStandings();
+    })();
   }, []);
 
   if (loading) return <p>Loading standings...</p>;
 
   return (
     <div>
-      <h2 className = "NFL Standing">NFL Standings</h2>
+      <h2 className='text-2xl font-bold'>NFL Standings</h2>
       <table>
         <thead>
           <tr>
@@ -45,8 +45,16 @@ export default function Standings() {
         </thead>
         <tbody>
           {standings.map((team) => (
-            <tr key={team.Team}>
-              <td>{team.Team}</td>
+            <tr key={team.Code || team.Team}>
+              <td>
+                {/* make the team name clickable */}
+                <NavLink
+                  className='text-blue-600 underline'
+                  to={`/team/${team.Code || encodeURIComponent(team.Team)}`}
+                >
+                  {team.Team}
+                </NavLink>
+              </td>
               <td>{team.Wins}</td>
               <td>{team.Losses}</td>
               <td>{team.Conference}</td>

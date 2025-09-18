@@ -14,7 +14,7 @@ export default function Schedule() {
   useEffect(() => {
     async function fetchSchedule() {
       try {
-        const res = await fetch('/api/schedule'); // 
+        const res = await fetch('/api/schedule'); //
         const data = await res.json();
         setSchedule(data);
       } catch (err) {
@@ -31,7 +31,7 @@ export default function Schedule() {
 
   return (
     <div>
-      <h2 className='NFL Schedule'>NFL Schedule</h2>
+      <h2 className='text-2xl font-bold'>NFL Schedule</h2>
       <table>
         <thead>
           <tr>

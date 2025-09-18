@@ -56,6 +56,7 @@ app.get('/api/standings', async (_req, res) => {
     const raw: any[] = await getJSON(`/Standings/${season}`);
 
     const rows = (raw ?? []).map((t) => ({
+      Code: t.Team,
       Team: t.FullName || t.Name || t.Team,
       Wins: t.Wins,
       Losses: t.Losses,
