@@ -10,17 +10,15 @@ const sessionController: SessionController = {
   isLoggedIn: async (req, res, next) => {
     try {
       const ssid = req.cookies?.ssid;
-      if (!ssid) {
-        return res.redirect('/signup');
-      }
-      const session = await Session.findOne({ cookieID: ssid });
-      if (!session) {
-        return res.redirect('/signup');
-      }
+      if (!ssid) return res.redirect('/login');
+
+      const session = await Session.findOne({ cookieId: ssid });
+      if (!session) return res.redirect('/login');
+
       res.locals.isLoggedIn = true;
       return next();
     } catch (err) {
-      next(err);
+      return next(err);
     }
   },
 
@@ -30,14 +28,22 @@ const sessionController: SessionController = {
         res.locals.user?._id?.toString?.() ??
         res.locals.userID ??
         req.cookies?.ssid;
+
       if (!cookieId) return next();
-      const existing = await Session.findOne({ cookieId });
-      if (existing) {
-        res.locals.session = existing;
-        return next;
+
+      let session = await Session.findOne({ cookieId });
+      if (!session) {
+        session = await Session.create({ cookieId });
       }
-      const newSession = await Session.create({ cookieId });
-      res.locals.session = newSession;
+
+      res.locals.session = session;
+
+      res.cookie('ssid', cookieId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+
       return next();
     } catch (err) {
       return next(err);

@@ -1,9 +1,11 @@
+// client/App.tsx
 import { Routes, Route, NavLink } from 'react-router-dom';
 import Home from './pages/Home';
 import Standings from './NFLStandings';
 import Schedule from './NFLSchedule';
 import TeamPage from './TeamPage';
 import NotFound from './pages/NotFound';
+import Login from './pages/Login';
 
 export default function App() {
   return (
@@ -42,6 +44,16 @@ export default function App() {
         >
           Schedule
         </NavLink>
+        <NavLink
+          to='/login'
+          className={({ isActive }) =>
+            `hover:underline underline-offset-4 transition ${
+              isActive ? 'underline font-bold text-red-600' : 'text-gray-600'
+            }`
+          }
+        >
+          Login
+        </NavLink>
       </nav>
 
       {/* ROUTES */}
@@ -50,6 +62,9 @@ export default function App() {
         <Route path='/standings' element={<Standings />} />
         <Route path='/schedule' element={<Schedule />} />
         <Route path='/team/:team' element={<TeamPage />} />
+
+        <Route path='/login' element={<Login />} />
+
         <Route path='*' element={<NotFound />} />
       </Routes>
     </div>
